@@ -464,7 +464,7 @@ class particles:
 #
 
 
-def run(grid, goal, spath, params, printflag = False, speed = 0.1, timeout = 1000):
+def run(grid, goal, spath, params, printflag = True, speed = 0.1, timeout = 1000):
 
     myrobot = robot()
     myrobot.set(0., 0., 0.)
@@ -491,18 +491,14 @@ def run(grid, goal, spath, params, printflag = False, speed = 0.1, timeout = 100
         estimate = filter.get_position()
 
         ### ENTER CODE HERE
-        unfinish = True
-        while unfinish:
-            dx = spath[index+1][0]-spath[index][0] # care index out of boundary
-            dy = spath[index+1][1]-spath[index][1]
-            rx = myrobot.x - spath[index][0]
-            ry = myrobot.y - spath[index][1]
-            u = (rx*dx + ry *dy)/(dx**2 + dy**2)
-            if u > 1:
-                index += 1
-            else:
-                cte = (ry*dx - rx*dy)/(dx**2 + dy**2)
-                unfinish = False
+        dx = spath[index+1][0]-spath[index][0] # care index out of boundary
+        dy = spath[index+1][1]-spath[index][1]
+        rx = myrobot.x - spath[index][0]
+        ry = myrobot.y - spath[index][1]
+        u = (rx*dx + ry *dy)/(dx**2 + dy**2)
+        if u > 1:
+            index += 1
+        cte = (ry*dx - rx*dy)/(dx**2 + dy**2)
         
 
         # ----------------------------------------
