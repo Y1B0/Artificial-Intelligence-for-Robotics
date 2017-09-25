@@ -1,14 +1,20 @@
 # -----------
 # User Instructions
 #
-# Familiarize yourself with the code below. Most of it
-# reproduces results that you have obtained at some
-# point in this class. Once you understand the code,
-# write a function, cte, in the run class that
-# computes the crosstrack
-# error for the case of a segmented path. You will
-# need to include the equations shown in the video.
+# The point of this exercise is to find the optimal
+# parameters! You can write a twiddle function or you
+# can use any other method
+# that you like. Since we don't know what the optimal
+# parameters are, we will be very loose with the 
+# grading. If you find parameters that work well, post 
+# them in the forums!
 #
+# Note: when we first released this problem, we 
+# included a twiddle function. But that's no fun!
+# Try coding up your own parameter optimization
+# and see how quickly you can get to the goal.
+#
+# You can find the parameters at line 581.
  
 from math import *
 import random
@@ -464,7 +470,7 @@ class particles:
 #
 
 
-def run(grid, goal, spath, params, printflag = True, speed = 0.1, timeout = 1000):
+def run(grid, goal, spath, params, printflag = False, speed = 0.1, timeout = 1000):
 
     myrobot = robot()
     myrobot.set(0., 0., 0.)
@@ -477,7 +483,6 @@ def run(grid, goal, spath, params, printflag = True, speed = 0.1, timeout = 1000
     N    = 0
 
     index = 0 # index into the path
-    # path[x][y]
     
     while not myrobot.check_goal(goal) and N < timeout:
 
@@ -490,15 +495,21 @@ def run(grid, goal, spath, params, printflag = True, speed = 0.1, timeout = 1000
         # start with the present robot estimate
         estimate = filter.get_position()
 
-        ### ENTER CODE HERE
-        dx = spath[index+1][0]-spath[index][0] # care index out of boundary
-        dy = spath[index+1][1]-spath[index][1]
-        rx = myrobot.x - spath[index][0]
-        ry = myrobot.y - spath[index][1]
-        u = (rx*dx + ry *dy)/(dx**2 + dy**2)
-        if u > 1:
+        # some basic vector calculations
+        dx = spath[index+1][0] - spath[index][0]
+        dy = spath[index+1][1] - spath[index][1]
+        drx = estimate[0] - spath[index][0]
+        dry = estimate[1] - spath[index][1]
+        
+        # u is the robot estimate projectes onto the path segment
+        u = (drx * dx + dry * dy) / (dx * dx + dy * dy)
+        
+        # the cte is the estimate projected onto the normal of the path segment
+        cte = (dry * dx - drx * dy) / (dx * dx + dy * dy)
+        
+        # pick the next path segment
+        if u > 1.0 and index < len(spath) - 1:
             index += 1
-        cte = (ry*dx - rx*dy)/(dx**2 + dy**2)
         
 
         # ----------------------------------------
@@ -522,7 +533,7 @@ def run(grid, goal, spath, params, printflag = True, speed = 0.1, timeout = 1000
 
         if printflag:
             print myrobot, cte, index, u
-        
+
     return [myrobot.check_goal(goal), myrobot.num_collisions, myrobot.num_steps]
 
 
@@ -537,7 +548,7 @@ def main(grid, init, goal, steering_noise, distance_noise, measurement_noise,
     path = plan(grid, init, goal)
     path.astar()
     path.smooth(weight_data, weight_smooth)
-    return run(grid, goal, path.spath, [p_gain, d_gain])
+    return run(grid, goal, path.spath, [p_gain, d_gain],True)
 
     
 
@@ -567,11 +578,14 @@ steering_noise    = 0.1
 distance_noise    = 0.03
 measurement_noise = 0.3
 
-weight_data       = 0.1
+#### ADJUST THESE PARAMETERS ######
+
+weight_data       = 0.3
 weight_smooth     = 0.2
 p_gain            = 2.0
 d_gain            = 6.0
 
+###################################
     
 print main(grid, init, goal, steering_noise, distance_noise, measurement_noise, 
            weight_data, weight_smooth, p_gain, d_gain)
@@ -579,67 +593,3 @@ print main(grid, init, goal, steering_noise, distance_noise, measurement_noise,
 
 
 
-def twiddle(init_params):
-    n_params   = len(init_params)
-    dparams    = [1.0 for row in range(n_params)]
-    params     = [0.0 for row in range(n_params)]
-    K = 10
-
-    for i in range(n_params):
-        params[i] = init_params[i]
-
-
-    best_error = 0.0;
-    for k in range(K):
-        ret = main(grid, init, goal, 
-                   steering_noise, distance_noise, measurement_noise, 
-                   params[0], params[1], params[2], params[3])
-        if ret[0]:
-            best_error += ret[1] * 100 + ret[2]
-        else:
-            best_error += 99999
-    best_error = float(best_error) / float(k+1)
-    print best_error
-
-    n = 0
-    while sum(dparams) > 0.0000001:
-        for i in range(len(params)):
-            params[i] += dparams[i]
-            err = 0
-            for k in range(K):
-                ret = main(grid, init, goal, 
-                           steering_noise, distance_noise, measurement_noise, 
-                           params[0], params[1], params[2], params[3], best_error)
-                if ret[0]:
-                    err += ret[1] * 100 + ret[2]
-                else:
-                    err += 99999
-            print float(err) / float(k+1)
-            if err < best_error:
-                best_error = float(err) / float(k+1)
-                dparams[i] *= 1.1
-            else:
-                params[i] -= 2.0 * dparams[i]            
-                err = 0
-                for k in range(K):
-                    ret = main(grid, init, goal, 
-                               steering_noise, distance_noise, measurement_noise, 
-                               params[0], params[1], params[2], params[3], best_error)
-                    if ret[0]:
-                        err += ret[1] * 100 + ret[2]
-                    else:
-                        err += 99999
-                print float(err) / float(k+1)
-                if err < best_error:
-                    best_error = float(err) / float(k+1)
-                    dparams[i] *= 1.1
-                else:
-                    params[i] += dparams[i]
-                    dparams[i] *= 0.5
-        n += 1
-        print 'Twiddle #', n, params, ' -> ', best_error
-    print ' '
-    return params
-
-
-#twiddle([weight_data, weight_smooth, p_gain, d_gain])
